@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IU Bloomington Graduate School — Alumni Outcomes Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--bg4:#21283b;
+  --fg:#c9d1d9;--fg2:#8b949e;--fg3:#58626e;
+  --crimson:#990000;--crimson-light:#cc2222;--crimson-dark:#660000;
+  --gold:#EDAB56;--gold-light:#f5c97a;--gold-dark:#c48a30;
+  --green:#3fb950;--blue:#58a6ff;--purple:#bc8cff;--red:#f85149;
+  --radius:8px;--shadow:0 2px 8px rgba(0,0,0,.4);
+  --transition:all .25s ease;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.5;min-height:100vh}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header{background:linear-gradient(135deg,var(--crimson-dark),var(--crimson));padding:1.2rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;box-shadow:0 2px 12px rgba(0,0,0,.5)}
+.header h1{font-size:1.35rem;font-weight:700;color:#fff;letter-spacing:.3px}
+.header .subtitle{font-size:.85rem;color:rgba(255,255,255,.75)}
+.header .controls{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.header label{font-size:.8rem;color:rgba(255,255,255,.8);cursor:pointer;display:flex;align-items:center;gap:.4rem}
+.header input[type=file]{display:none}
+.header .file-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:.35rem .75rem;border-radius:var(--radius);font-size:.8rem;cursor:pointer;transition:var(--transition)}
+.header .file-btn:hover{background:rgba(255,255,255,.25)}
+.header select{background:var(--bg3);color:var(--fg);border:1px solid var(--fg3);padding:.35rem .5rem;border-radius:var(--radius);font-size:.8rem}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.tab-bar{display:flex;gap:0;background:var(--bg2);border-bottom:2px solid var(--bg4);overflow-x:auto;padding:0 1rem}
+.tab-btn{padding:.75rem 1.25rem;font-size:.85rem;color:var(--fg2);background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:var(--transition);white-space:nowrap;font-weight:500}
+.tab-btn:hover{color:var(--fg);background:var(--bg3)}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+.tab-content{display:none;padding:1.5rem;animation:fadeIn .3s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Cards ────────────────────────────────────────────────── */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius);padding:1.1rem;box-shadow:var(--shadow);transition:var(--transition)}
+.card:hover{border-color:var(--crimson);transform:translateY(-2px)}
+.card .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;color:var(--fg2);margin-bottom:.35rem}
+.card .value{font-size:1.7rem;font-weight:700;color:#fff}
+.card .sub{font-size:.8rem;color:var(--fg2);margin-top:.2rem}
+.card.highlight{border-left:3px solid var(--gold)}
+.card.crimson .value{color:var(--crimson-light)}
+.card.gold .value{color:var(--gold)}
+.card.green .value{color:var(--green)}
+.card.red .value{color:var(--red)}
+
+/* ── Chart containers ─────────────────────────────────────── */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+.chart-row.single{grid-template-columns:1fr}
+.chart-row.triple{grid-template-columns:1fr 1fr 1fr}
+.chart-box{background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow)}
+.chart-box h3{font-size:.9rem;color:var(--gold);margin-bottom:.75rem;font-weight:600}
+.chart-box .plotly-chart{width:100%;min-height:350px}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.data-table-wrap{overflow-x:auto;margin-bottom:1.5rem}
+.data-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.data-table th{background:var(--bg3);color:var(--gold);padding:.55rem .75rem;text-align:left;font-weight:600;border-bottom:2px solid var(--bg4);position:sticky;top:0;white-space:nowrap}
+.data-table td{padding:.45rem .75rem;border-bottom:1px solid var(--bg4);color:var(--fg)}
+.data-table tr:hover td{background:var(--bg3)}
+.data-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── Methodology / notes ──────────────────────────────────── */
+.notes{max-width:900px}
+.notes h2{color:var(--gold);font-size:1.15rem;margin:1.5rem 0 .5rem;border-bottom:1px solid var(--bg4);padding-bottom:.3rem}
+.notes h3{color:var(--crimson-light);font-size:.95rem;margin:1rem 0 .35rem}
+.notes p,.notes li{color:var(--fg);font-size:.88rem;margin-bottom:.4rem}
+.notes ul{padding-left:1.25rem}
+.notes code{background:var(--bg3);padding:.1rem .35rem;border-radius:3px;font-size:.82rem;color:var(--gold-light)}
+
+/* ── Landing / empty state ────────────────────────────────── */
+.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:1.25rem}
+.landing .icon{font-size:4rem;opacity:.3}
+.landing h2{color:var(--fg);font-size:1.4rem}
+.landing p{color:var(--fg2);max-width:520px;font-size:.92rem}
+.landing .file-btn-lg{background:var(--crimson);color:#fff;padding:.65rem 1.5rem;border-radius:var(--radius);font-size:1rem;cursor:pointer;border:none;transition:var(--transition);font-weight:600}
+.landing .file-btn-lg:hover{background:var(--crimson-light)}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media(max-width:900px){
+  .chart-row,.chart-row.triple{grid-template-columns:1fr}
+  .card-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .header{padding:1rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div>
+    <h1>IU Bloomington Graduate School</h1>
+    <div class="subtitle">Alumni Outcomes Analytics Dashboard</div>
+  </div>
+  <div class="controls">
+    <select id="scopeSelect" disabled title="Select scope after loading data">
+      <option value="">Load data first…</option>
+    </select>
+    <label>
+      <span class="file-btn" id="loadBtnLabel">Load JSON Bundle</span>
+      <input type="file" id="jsonInput" accept=".json" multiple>
+    </label>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB BAR
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="aa">Academic Analytics</button>
+  <button class="tab-btn" data-tab="lc">Lightcast</button>
+  <button class="tab-btn" data-tab="pseo">PSEO</button>
+  <button class="tab-btn" data-tab="nooutcome">No Outcome Explorer</button>
+  <button class="tab-btn" data-tab="notes">Data Notes / Methodology</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB CONTENT
+     ═══════════════════════════════════════════════════════════ -->
+
+<!-- LANDING -->
+<div class="tab-content active" id="tab-overview">
+  <div class="landing" id="landing">
+    <div class="icon">&#128202;</div>
+    <h2>Load a JSON Bundle to Begin</h2>
+    <p>Use the <strong>Load JSON Bundle</strong> button above to load one or more precomputed
+       <code>dashboard_bundle_*.json</code> files generated by the preprocessing script.</p>
+    <label>
+      <button class="file-btn-lg" onclick="document.getElementById('jsonInput').click()">Choose JSON Bundle(s)</button>
+    </label>
+  </div>
+  <div id="overviewContent" style="display:none">
+    <div class="card-grid" id="kpiCards"></div>
+    <div class="chart-row" id="overviewCharts1"></div>
+    <div class="chart-row" id="overviewCharts2"></div>
+    <div class="chart-row single" id="overviewSankey"></div>
+    <div class="chart-row" id="overviewCharts3"></div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-aa">
+  <div class="card-grid" id="aaCards"></div>
+  <div class="chart-row" id="aaCharts1"></div>
+  <div class="chart-row single" id="aaCharts2"></div>
+</div>
+
+<div class="tab-content" id="tab-lc">
+  <div class="card-grid" id="lcCards"></div>
+  <div class="chart-row" id="lcCharts1"></div>
+  <div class="chart-row" id="lcCharts2"></div>
+</div>
+
+<div class="tab-content" id="tab-pseo">
+  <div class="card-grid" id="pseoCards"></div>
+  <div class="chart-row" id="pseoCharts1"></div>
+</div>
+
+<div class="tab-content" id="tab-nooutcome">
+  <div class="card-grid" id="noCards"></div>
+  <div class="chart-row" id="noCharts1"></div>
+  <div class="chart-row" id="noCharts2"></div>
+  <div class="chart-row single" id="noCharts3"></div>
+  <h3 style="color:var(--gold);margin:1rem 0 .5rem">No-Outcome Students by Year</h3>
+  <div class="data-table-wrap" id="noTableWrap"></div>
+</div>
+
+<div class="tab-content" id="tab-notes">
+  <div class="notes" id="notesContent">
+    <h2>Methodology &amp; Data Notes</h2>
+    <h3>Denominator</h3>
+    <p>The denominator is drawn from <strong>DSS</strong> (Decision Support System) — IU Bloomington graduate degree awards
+       (degree levels 8 and 9, checkout status = AW). Each student appears once, keyed to their most recent (maximum)
+       cohort graduation year.</p>
+    <h3>What counts as a "true match"?</h3>
+    <p>A Lightcast record is a "true match" only when <code>MATCH_STATUS == True</code>.
+       Having a row in the Lightcast file is <strong>not</strong> sufficient — many rows have
+       <code>MATCH_STATUS = False</code>, meaning Lightcast could not confidently match the student to an employer.</p>
+    <h3>What counts as an employment outcome?</h3>
+    <ul>
+      <li><strong>AA employment</strong>: any Academic Analytics row with non-blank ENTITYNAME or POSITION</li>
+      <li><strong>Lightcast employment</strong>: true match (MATCH_STATUS == True) AND non-blank COMPANY_NAME or TITLE_NAME</li>
+      <li>PSEO is <strong>not</strong> employment — it is engagement / career services interaction</li>
+    </ul>
+    <h3>Which source gives the most coverage?</h3>
+    <p>Lightcast has the broadest row-level reach but only ~30–40% of rows yield true matches.
+       AA is a supplemental source with ~10–12% student coverage. PSEO covers ~14% for engagement.</p>
+    <h3>Where does coverage fall apart?</h3>
+    <p>The single largest gap is <strong>Lightcast row-only-no-true-match</strong> — students who appear in Lightcast
+       but whose MATCH_STATUS is False. This is the dominant no-outcome reason.</p>
+    <h3>Year coverage caveats</h3>
+    <ul>
+      <li>Earlier cohorts (pre-2010) have lower match rates across all sources</li>
+      <li>2025 data may be incomplete (partial year)</li>
+      <li>AA is snapshot-based, not continuous annual. Years 2021–2024 may appear sparse due to AA's data vintage</li>
+    </ul>
+    <h3>International students</h3>
+    <p>Students flagged as "US Nonresident" in DSS are classified as international.
+       International students typically show lower match rates across all vendor sources.</p>
+    <h3>Bloomington denominator</h3>
+    <p>Yes. DSS is filtered to IUBLA (Indiana University Bloomington). Lightcast may include other campuses
+       at the row level, but the <strong>denominator</strong> is always Bloomington graduates via DSS JOIN_ID linkage.</p>
+    <h3>Bucket definitions (disjoint, precedence order)</h3>
+    <ol>
+      <li><strong>AA_EMPLOYMENT</strong> — AA has non-blank entity/position (highest priority)</li>
+      <li><strong>LIGHTCAST_EMPLOYMENT</strong> — LC true match with non-blank company/title</li>
+      <li><strong>PSEO_ONLY_OR_ENGAGEMENT</strong> — PSEO row exists but no employment outcome</li>
+      <li><strong>NO_OUTCOME</strong> — none of the above</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+"use strict";
+
+/* ── State ─────────────────────────────────────────────────── */
+const bundles = {};
+let currentScope = null;
+let currentData = null;
+
+/* ── Colours ───────────────────────────────────────────────── */
+const C = {
+  crimson:'#990000', crimsonL:'#cc2222', gold:'#EDAB56', goldL:'#f5c97a',
+  green:'#3fb950', blue:'#58a6ff', purple:'#bc8cff', red:'#f85149',
+  bg:'#0d1117', bg2:'#161b22', bg3:'#1c2333', fg:'#c9d1d9', fg2:'#8b949e',
+};
+const BUCKET_COLORS = {
+  'AA_EMPLOYMENT': C.green,
+  'LIGHTCAST_EMPLOYMENT': C.blue,
+  'PSEO_ONLY_OR_ENGAGEMENT': C.purple,
+  'NO_OUTCOME': C.red,
+};
+const REASON_COLORS = {
+  'NO_VENDOR_RECORD':'#f85149',
+  'LIGHTCAST_ROW_BUT_NO_TRUE_MATCH':'#ff7b72',
+  'AA_ROW_BUT_BLANK_ENTITY_POSITION':'#d29922',
+  'LIGHTCAST_TRUE_MATCH_BUT_BLANK_EMPLOYER_TITLE':'#e3b341',
+  'OTHER':'#8b949e',
+};
+
+/* ── Plotly defaults ───────────────────────────────────────── */
+const LAYOUT_BASE = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:{color:C.fg, size:12},
+  margin:{l:55,r:25,t:35,b:50},
+  xaxis:{gridcolor:'#21283b', zerolinecolor:'#21283b'},
+  yaxis:{gridcolor:'#21283b', zerolinecolor:'#21283b'},
+  legend:{bgcolor:'transparent', font:{size:11}},
+  hoverlabel:{font:{size:12}},
+};
+const CONFIG = {responsive:true, displayModeBar:false};
+
+function L(overrides){return Object.assign({},JSON.parse(JSON.stringify(LAYOUT_BASE)),overrides)}
+
+/* ── Helpers ───────────────────────────────────────────────── */
+function fmt(n){return n==null?'—':Number(n).toLocaleString()}
+function pct(r){return r==null?'—':(r*100).toFixed(1)+'%'}
+function metricVal(d,name){
+  const row = (d.overall_summary||[]).find(r=>r.METRIC===name);
+  return row?row.COUNT:0;
+}
+function metricRate(d,name){
+  const row = (d.overall_summary||[]).find(r=>r.METRIC===name);
+  return row?row.RATE:0;
+}
+
+function makeCard(label,value,sub,cls){
+  const div=document.createElement('div');
+  div.className='card'+(cls?' '+cls:'');
+  div.innerHTML=`<div class="label">${label}</div><div class="value">${value}</div>`+(sub?`<div class="sub">${sub}</div>`:'');
+  return div;
+}
+
+function ensureDiv(parentId, childId){
+  let el = document.getElementById(childId);
+  if(!el){
+    el=document.createElement('div');
+    el.id=childId;
+    el.className='chart-box';
+    document.getElementById(parentId).appendChild(el);
+  }
+  return el;
+}
+
+function makeChartDiv(parentId, childId, title){
+  const wrap = ensureDiv(parentId, childId+'_wrap');
+  wrap.innerHTML = title?`<h3>${title}</h3>`:'';
+  const plotDiv = document.createElement('div');
+  plotDiv.id = childId;
+  plotDiv.className = 'plotly-chart';
+  wrap.appendChild(plotDiv);
+  return plotDiv;
+}
+
+/* ── Tab switching (deferred rendering for Plotly) ─────────── */
+const pendingRenders = {};
+document.getElementById('tabBar').addEventListener('click',function(e){
+  if(!e.target.classList.contains('tab-btn'))return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  const tab = e.target.dataset.tab;
+  document.getElementById('tab-'+tab).classList.add('active');
+  // Deferred render: run pending render function after tab is visible
+  if(pendingRenders[tab]){
+    setTimeout(()=>{pendingRenders[tab](); delete pendingRenders[tab];}, 50);
+  }
+});
+
+/* ── File loading ──────────────────────────────────────────── */
+document.getElementById('jsonInput').addEventListener('change',function(e){
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+  let loaded=0;
+  const total=files.length;
+  files.forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        const data = JSON.parse(ev.target.result);
+        const key = data.scope || f.name.replace('.json','');
+        bundles[key] = data;
+      }catch(err){
+        console.error('Error parsing '+f.name, err);
+      }
+      loaded++;
+      if(loaded===total) onBundlesLoaded();
+    };
+    reader.readAsText(f);
+  });
+});
+
+function onBundlesLoaded(){
+  const sel = document.getElementById('scopeSelect');
+  sel.innerHTML='';
+  sel.disabled=false;
+  Object.keys(bundles).sort().forEach(k=>{
+    const opt=document.createElement('option');
+    opt.value=k; opt.textContent=(bundles[k].label||k)+' ('+k+')';
+    sel.appendChild(opt);
+  });
+  // Default to 2004_2025 if available
+  if(bundles['2004_2025']) sel.value='2004_2025';
+  sel.addEventListener('change',()=>renderScope(sel.value));
+  renderScope(sel.value);
+  document.getElementById('loadBtnLabel').textContent='Load More…';
+}
+
+function renderScope(key){
+  currentScope=key;
+  currentData=bundles[key];
+  if(!currentData) return;
+  document.getElementById('landing').style.display='none';
+  document.getElementById('overviewContent').style.display='block';
+  // Overview is visible, render immediately
+  renderOverview();
+  // Other tabs: defer rendering until they become visible
+  // But also populate cards (non-Plotly) immediately since they don't need dimensions
+  pendingRenders['aa'] = ()=>renderAA();
+  pendingRenders['lc'] = ()=>renderLC();
+  pendingRenders['pseo'] = ()=>renderPSEO();
+  pendingRenders['nooutcome'] = ()=>renderNoOutcome();
+  // If user is already on a non-overview tab, render it now
+  const activeTab = document.querySelector('.tab-btn.active');
+  if(activeTab){
+    const tab = activeTab.dataset.tab;
+    if(tab!=='overview' && pendingRenders[tab]){
+      setTimeout(()=>{pendingRenders[tab](); delete pendingRenders[tab];}, 50);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   OVERVIEW TAB
+   ═══════════════════════════════════════════════════════════ */
+function renderOverview(){
+  const d=currentData, N=d.n_students;
+
+  // KPI cards
+  const kpi=document.getElementById('kpiCards');
+  kpi.innerHTML='';
+  kpi.appendChild(makeCard('DSS Students',fmt(N),'Denominator','highlight'));
+  kpi.appendChild(makeCard('Any Employment',fmt(metricVal(d,'ANY_EMPLOYMENT_OUTCOME')),pct(metricRate(d,'ANY_EMPLOYMENT_OUTCOME'))+' of DSS','green'));
+  kpi.appendChild(makeCard('AA Employment',fmt(metricVal(d,'AA_HAS_EMPLOYMENT')),pct(metricRate(d,'AA_HAS_EMPLOYMENT'))+' of DSS',''));
+  kpi.appendChild(makeCard('LC True Match Emp.',fmt(metricVal(d,'LC_EMPLOYMENT_TRUE_MATCH')),pct(metricRate(d,'LC_EMPLOYMENT_TRUE_MATCH'))+' of DSS',''));
+  kpi.appendChild(makeCard('PSEO Engagement',fmt(metricVal(d,'PSEO_HAS_ROW')),pct(metricRate(d,'PSEO_HAS_ROW'))+' of DSS','gold'));
+  kpi.appendChild(makeCard('No Outcome',fmt(metricVal(d,'NO_OUTCOME')),pct(metricRate(d,'NO_OUTCOME'))+' of DSS','red'));
+  kpi.appendChild(makeCard('LC Row Only (no match)',fmt(metricVal(d,'LC_ROW_ONLY_NO_TRUE_MATCH')),pct(metricRate(d,'LC_ROW_ONLY_NO_TRUE_MATCH'))+' of DSS — main gap','crimson'));
+  kpi.appendChild(makeCard('Any Vendor Row',fmt(metricVal(d,'ANY_VENDOR_ROW')),pct(metricRate(d,'ANY_VENDOR_ROW'))+' of DSS',''));
+
+  // Chart row 1: Vendor funnel + Bucket donut
+  const cr1=document.getElementById('overviewCharts1');
+  cr1.innerHTML='';
+
+  // Vendor funnel bar
+  const funnelDiv=makeChartDiv('overviewCharts1','funnelChart','Vendor Funnel');
+  const vf=d.vendor_funnel||[];
+  Plotly.newPlot(funnelDiv,[{
+    type:'bar', orientation:'h',
+    y:vf.map(r=>r.STAGE), x:vf.map(r=>r.COUNT),
+    text:vf.map(r=>fmt(r.COUNT)+' ('+pct(r.RATE_OF_DSS)+')'),
+    textposition:'auto', textfont:{size:11},
+    marker:{color:vf.map(r=>r.VENDOR==='AA'?C.green:r.VENDOR==='Lightcast'?C.blue:C.purple)},
+    hovertemplate:'%{y}: %{x:,}<extra></extra>',
+  }],L({title:'',yaxis:{autorange:'reversed'},margin:{l:200,r:30,t:10,b:40}}),CONFIG);
+
+  // Bucket donut
+  const bucketDiv=makeChartDiv('overviewCharts1','bucketDonut','Outcome Buckets (Disjoint)');
+  const bc=d.bucket_counts||[];
+  Plotly.newPlot(bucketDiv,[{
+    type:'pie', hole:.45,
+    labels:bc.map(r=>r.BUCKET), values:bc.map(r=>r.STUDENTS),
+    marker:{colors:bc.map(r=>BUCKET_COLORS[r.BUCKET]||C.fg2)},
+    textinfo:'label+percent', textposition:'outside',
+    textfont:{size:11},
+    hovertemplate:'%{label}: %{value:,} (%{percent})<extra></extra>',
+  }],L({margin:{l:10,r:10,t:10,b:10},showlegend:false}),CONFIG);
+
+  // Chart row 2: Year trend
+  const cr2=document.getElementById('overviewCharts2');
+  cr2.innerHTML='';
+  const yearDiv=makeChartDiv('overviewCharts2','yearTrend','Employment & Coverage by Cohort Year');
+  const by=d.by_year||[];
+  const years=by.map(r=>r.PRIMARY_COHORT_YEAR);
+  Plotly.newPlot(yearDiv,[
+    {x:years,y:by.map(r=>r.RATE_ANY_EMPLOYMENT_OUTCOME),name:'Employment Rate',type:'scatter',mode:'lines+markers',line:{color:C.green,width:2},marker:{size:5}},
+    {x:years,y:by.map(r=>r.RATE_NO_OUTCOME),name:'No Outcome Rate',type:'scatter',mode:'lines+markers',line:{color:C.red,width:2},marker:{size:5}},
+    {x:years,y:by.map(r=>r.RATE_LC_TRUE_MATCH),name:'LC True Match Rate',type:'scatter',mode:'lines+markers',line:{color:C.blue,width:1.5,dash:'dot'},marker:{size:4}},
+    {x:years,y:by.map(r=>r.RATE_AA_HAS_EMPLOYMENT),name:'AA Employment Rate',type:'scatter',mode:'lines+markers',line:{color:C.purple,width:1.5,dash:'dot'},marker:{size:4}},
+  ],L({yaxis:{tickformat:'.0%',title:'Rate'},xaxis:{title:'Cohort Year',dtick:1},legend:{orientation:'h',y:1.12}}),CONFIG);
+
+  // Students by year bar
+  const yearBarDiv=makeChartDiv('overviewCharts2','yearBar','Students by Cohort Year');
+  Plotly.newPlot(yearBarDiv,[{
+    type:'bar',x:years,y:by.map(r=>r.STUDENTS),
+    marker:{color:C.crimsonL},
+    hovertemplate:'%{x}: %{y:,}<extra></extra>',
+  }],L({xaxis:{title:'Cohort Year',dtick:1},yaxis:{title:'Students'}}),CONFIG);
+
+  // Sankey
+  const sk=document.getElementById('overviewSankey');
+  sk.innerHTML='';
+  renderSankey(d,sk);
+
+  // Chart row 3: International comparison
+  const cr3=document.getElementById('overviewCharts3');
+  cr3.innerHTML='';
+  const intlDiv=makeChartDiv('overviewCharts3','intlCompare','Domestic vs International');
+  const bi=d.by_international||[];
+  if(bi.length>=2){
+    const labels=bi.map(r=>r.IS_INTERNATIONAL?'International':'Domestic');
+    const metricsToShow=['RATE_ANY_EMPLOYMENT_OUTCOME','RATE_NO_OUTCOME','RATE_LC_TRUE_MATCH','RATE_AA_HAS_ROW'];
+    const mNames=['Employment','No Outcome','LC True Match','AA Has Row'];
+    const mColors=[C.green,C.red,C.blue,C.purple];
+    const traces=metricsToShow.map((m,i)=>({
+      type:'bar',name:mNames[i],x:labels,
+      y:bi.map(r=>r[m]||0),
+      marker:{color:mColors[i]},
+      text:bi.map(r=>pct(r[m]||0)),textposition:'auto',textfont:{size:10},
+    }));
+    Plotly.newPlot(intlDiv,traces,L({barmode:'group',yaxis:{tickformat:'.0%'},legend:{orientation:'h',y:1.12}}),CONFIG);
+  }
+
+  // Validation table (if available)
+  const vr=d.validation||[];
+  if(vr.length){
+    const valDiv=ensureDiv('overviewCharts3','validationTable_wrap');
+    let html='<h3>Validation vs Expected</h3><div class="data-table-wrap"><table class="data-table"><thead><tr><th>Metric</th><th class="num">Expected</th><th class="num">Actual</th><th class="num">Diff</th><th class="num">%Diff</th><th>Status</th></tr></thead><tbody>';
+    vr.forEach(r=>{
+      const cls=r.STATUS==='WARNING'?'style="color:var(--red)"':'';
+      html+=`<tr><td>${r.METRIC}</td><td class="num">${fmt(r.EXPECTED)}</td><td class="num">${fmt(r.ACTUAL)}</td><td class="num" ${cls}>${r.DIFF>=0?'+':''}${fmt(r.DIFF)}</td><td class="num" ${cls}>${r.PCT_DIFF>=0?'+':''}${r.PCT_DIFF}%</td><td ${cls}>${r.STATUS}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+    valDiv.innerHTML=html;
+  }
+}
+
+/* ── Sankey ─────────────────────────────────────────────────── */
+function renderSankey(d,container){
+  const box=document.createElement('div');
+  box.className='chart-box';
+  box.innerHTML='<h3>Outcome Flow (Sankey)</h3>';
+  const plotDiv=document.createElement('div');
+  plotDiv.className='plotly-chart';
+  plotDiv.style.minHeight='420px';
+  box.appendChild(plotDiv);
+  container.appendChild(box);
+
+  // Build from sankey_overall + sankey_intl
+  const so=d.sankey_overall||[];
+  const si=d.sankey_intl||[];
+
+  // Node labels
+  const nodeSet=new Set();
+  const allEdges=[...so,...si];
+  allEdges.forEach(e=>{nodeSet.add(e.SOURCE);nodeSet.add(e.TARGET)});
+  const nodes=Array.from(nodeSet);
+  const nodeIdx={};
+  nodes.forEach((n,i)=>nodeIdx[n]=i);
+
+  const nodeColors=nodes.map(n=>{
+    if(n==='DSS_TOTAL')return C.crimsonL;
+    if(n==='DOMESTIC')return C.blue;
+    if(n==='INTERNATIONAL')return C.gold;
+    return BUCKET_COLORS[n]||C.fg2;
+  });
+
+  // Use intl edges if available (more detail), else overall
+  const edges = si.length?si:so;
+
+  Plotly.newPlot(plotDiv,[{
+    type:'sankey',
+    orientation:'h',
+    node:{
+      pad:20, thickness:25,
+      label:nodes,
+      color:nodeColors,
+    },
+    link:{
+      source:edges.map(e=>nodeIdx[e.SOURCE]),
+      target:edges.map(e=>nodeIdx[e.TARGET]),
+      value:edges.map(e=>e.VALUE),
+      color:edges.map(e=>{
+        const c=BUCKET_COLORS[e.TARGET]||C.fg2;
+        return c+'55';
+      }),
+    },
+  }],L({margin:{l:10,r:10,t:10,b:10}}),CONFIG);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACADEMIC ANALYTICS TAB
+   ═══════════════════════════════════════════════════════════ */
+function renderAA(){
+  const d=currentData, N=d.n_students;
+  const kpi=document.getElementById('aaCards');
+  kpi.innerHTML='';
+  kpi.appendChild(makeCard('AA Has Row',fmt(metricVal(d,'AA_HAS_ROW')),pct(metricRate(d,'AA_HAS_ROW'))+' of DSS',''));
+  kpi.appendChild(makeCard('AA Employment',fmt(metricVal(d,'AA_HAS_EMPLOYMENT')),pct(metricRate(d,'AA_HAS_EMPLOYMENT'))+' of DSS','green'));
+
+  const cr1=document.getElementById('aaCharts1');
+  cr1.innerHTML='';
+
+  // AA coverage by year
+  const aaYearDiv=makeChartDiv('aaCharts1','aaYearTrend','AA Employment Rate by Cohort Year');
+  const by=d.by_year||[];
+  Plotly.newPlot(aaYearDiv,[
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_AA_HAS_EMPLOYMENT),type:'scatter',mode:'lines+markers',line:{color:C.green,width:2},name:'AA Employment Rate'},
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_AA_HAS_ROW),type:'scatter',mode:'lines+markers',line:{color:C.purple,width:1.5,dash:'dot'},name:'AA Has Row Rate'},
+  ],L({yaxis:{tickformat:'.0%',title:'Rate'},xaxis:{title:'Cohort Year',dtick:1},legend:{orientation:'h',y:1.12}}),CONFIG);
+
+  // AA year count bar
+  const aaCountDiv=makeChartDiv('aaCharts1','aaYearCounts','AA Row Count by Cohort Year');
+  Plotly.newPlot(aaCountDiv,[{
+    type:'bar',x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.AA_HAS_EMPLOYMENT),
+    marker:{color:C.green},name:'AA Employment',
+  },{
+    type:'bar',x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>(r.AA_HAS_ROW||0)-(r.AA_HAS_EMPLOYMENT||0)),
+    marker:{color:C.fg2},name:'AA Row (no employment)',
+  }],L({barmode:'stack',xaxis:{title:'Cohort Year',dtick:1},yaxis:{title:'Students'},legend:{orientation:'h',y:1.12}}),CONFIG);
+
+  // AA year alignment crosstab heatmap
+  const cr2=document.getElementById('aaCharts2');
+  cr2.innerHTML='';
+  const xt=d.aa_year_crosstab||[];
+  if(xt.length>1){
+    const heatDiv=makeChartDiv('aaCharts2','aaCrosstab','AA YEAR vs DSS Cohort Year Crosstab');
+    // Parse crosstab – first col is PRIMARY_COHORT_YEAR, remaining are AA years
+    const cols=Object.keys(xt[0]).filter(c=>c!=='PRIMARY_COHORT_YEAR'&&c!=='All');
+    const rows=xt.filter(r=>r.PRIMARY_COHORT_YEAR!=='All');
+    const yLabels=rows.map(r=>String(r.PRIMARY_COHORT_YEAR));
+    const z=rows.map(r=>cols.map(c=>r[c]||0));
+    Plotly.newPlot(heatDiv,[{
+      type:'heatmap',z:z,x:cols,y:yLabels,
+      colorscale:[[0,'#0d1117'],[0.5,'#990000'],[1,'#EDAB56']],
+      hovertemplate:'DSS Year %{y}, AA Year %{x}: %{z}<extra></extra>',
+    }],L({xaxis:{title:'AA YEAR',type:'category'},yaxis:{title:'DSS Cohort Year',type:'category',autorange:'reversed'},margin:{l:80,r:30,t:10,b:60}}),CONFIG);
+  } else {
+    cr2.innerHTML='<div class="chart-box"><h3>AA Year Crosstab</h3><p style="color:var(--fg2);padding:1rem">No crosstab data in this bundle.</p></div>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHTCAST TAB
+   ═══════════════════════════════════════════════════════════ */
+function renderLC(){
+  const d=currentData, N=d.n_students;
+  const kpi=document.getElementById('lcCards');
+  kpi.innerHTML='';
+  kpi.appendChild(makeCard('LC Has Row',fmt(metricVal(d,'LC_HAS_ROW')),pct(metricRate(d,'LC_HAS_ROW'))+' of DSS',''));
+  kpi.appendChild(makeCard('LC True Match',fmt(metricVal(d,'LC_TRUE_MATCH')),pct(metricRate(d,'LC_TRUE_MATCH'))+' of DSS','blue'));
+  kpi.appendChild(makeCard('LC Employment',fmt(metricVal(d,'LC_EMPLOYMENT_TRUE_MATCH')),pct(metricRate(d,'LC_EMPLOYMENT_TRUE_MATCH'))+' of DSS','green'));
+  kpi.appendChild(makeCard('LC Row Only (no match)',fmt(metricVal(d,'LC_ROW_ONLY_NO_TRUE_MATCH')),pct(metricRate(d,'LC_ROW_ONLY_NO_TRUE_MATCH'))+' — bottleneck','red'));
+
+  const cr1=document.getElementById('lcCharts1');
+  cr1.innerHTML='';
+
+  // LC funnel waterfall
+  const watDiv=makeChartDiv('lcCharts1','lcWaterfall','Lightcast Funnel');
+  const lcHas=metricVal(d,'LC_HAS_ROW');
+  const lcTrue=metricVal(d,'LC_TRUE_MATCH');
+  const lcEmp=metricVal(d,'LC_EMPLOYMENT_TRUE_MATCH');
+  const lcNoMatch=metricVal(d,'LC_ROW_ONLY_NO_TRUE_MATCH');
+  Plotly.newPlot(watDiv,[{
+    type:'waterfall', orientation:'v',
+    x:['LC Has Row','→ No True Match','→ True Match','→ True Match Blank Emp','LC Employment'],
+    y:[lcHas, -lcNoMatch, 0, -(lcTrue-lcEmp), 0],
+    measure:['absolute','relative','relative','relative','total'],
+    connector:{line:{color:C.fg2,width:1}},
+    increasing:{marker:{color:C.blue}},
+    decreasing:{marker:{color:C.red}},
+    totals:{marker:{color:C.green}},
+    text:[fmt(lcHas),fmt(lcNoMatch),'',fmt(lcTrue-lcEmp),fmt(lcEmp)],
+    textposition:'outside',
+  }],L({yaxis:{title:'Students'},margin:{l:55,r:25,t:10,b:80}}),CONFIG);
+
+  // LC true match rate by year
+  const lcYrDiv=makeChartDiv('lcCharts1','lcYearTrend','LC True Match & Employment Rate by Year');
+  const by=d.by_year||[];
+  Plotly.newPlot(lcYrDiv,[
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_LC_TRUE_MATCH),name:'True Match Rate',type:'scatter',mode:'lines+markers',line:{color:C.blue,width:2}},
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_LC_EMPLOYMENT_TRUE_MATCH),name:'Employment Rate',type:'scatter',mode:'lines+markers',line:{color:C.green,width:2}},
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_LC_ROW_ONLY_NO_TRUE_MATCH),name:'Row-Only Rate',type:'scatter',mode:'lines+markers',line:{color:C.red,width:1.5,dash:'dot'}},
+  ],L({yaxis:{tickformat:'.0%',title:'Rate'},xaxis:{title:'Cohort Year',dtick:1},legend:{orientation:'h',y:1.12}}),CONFIG);
+
+  // LC match rate heatmap by year
+  const cr2=document.getElementById('lcCharts2');
+  cr2.innerHTML='';
+  const lcm=d.lc_match_by_year||[];
+  if(lcm.length){
+    const heatDiv=makeChartDiv('lcCharts2','lcMatchHeat','LC True Match Rate by Year (Row-Level)');
+    Plotly.newPlot(heatDiv,[{
+      type:'bar',
+      x:lcm.map(r=>r.PRIMARY_COHORT_YEAR),
+      y:lcm.map(r=>r.TRUE_MATCH_RATE),
+      marker:{color:lcm.map(r=>r.TRUE_MATCH_RATE>.4?C.green:r.TRUE_MATCH_RATE>.25?C.gold:C.red)},
+      text:lcm.map(r=>pct(r.TRUE_MATCH_RATE)),textposition:'auto',
+      hovertemplate:'Year %{x}: %{text}<extra>Rows: '+lcm.map(r=>fmt(r.LC_ROWS)).join('</extra><extra>')+'</extra>',
+    }],L({xaxis:{title:'Cohort Year',dtick:1},yaxis:{tickformat:'.0%',title:'True Match Rate'}}),CONFIG);
+  }
+
+  // LC bottleneck visual
+  const btlDiv=makeChartDiv('lcCharts2','lcBottleneck','Lightcast True-Match Bottleneck');
+  const matchRate = lcHas>0 ? lcTrue/lcHas : 0;
+  const empRate = lcTrue>0 ? lcEmp/lcTrue : 0;
+  Plotly.newPlot(btlDiv,[{
+    type:'indicator',mode:'gauge+number+delta',
+    value:matchRate*100,
+    title:{text:'True Match Rate of LC Rows',font:{size:14,color:C.fg}},
+    number:{suffix:'%',font:{size:28}},
+    gauge:{
+      axis:{range:[0,100],tickcolor:C.fg2},
+      bar:{color:C.crimsonL},
+      bgcolor:C.bg3,
+      steps:[
+        {range:[0,30],color:'#1a0000'},
+        {range:[30,50],color:'#331100'},
+        {range:[50,100],color:'#003300'},
+      ],
+    },
+  }],L({margin:{l:30,r:30,t:60,b:20},height:300}),CONFIG);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PSEO TAB
+   ═══════════════════════════════════════════════════════════ */
+function renderPSEO(){
+  const d=currentData, N=d.n_students;
+  const kpi=document.getElementById('pseoCards');
+  kpi.innerHTML='';
+  kpi.appendChild(makeCard('PSEO Has Row',fmt(metricVal(d,'PSEO_HAS_ROW')),pct(metricRate(d,'PSEO_HAS_ROW'))+' of DSS','gold'));
+  kpi.appendChild(makeCard('Note','Engagement Only','PSEO is NOT employment data',''));
+
+  const cr1=document.getElementById('pseoCharts1');
+  cr1.innerHTML='';
+  const psYrDiv=makeChartDiv('pseoCharts1','pseoYear','PSEO Engagement by Cohort Year');
+  const by=d.by_year||[];
+  Plotly.newPlot(psYrDiv,[{
+    type:'bar',x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.PSEO_HAS_ROW),
+    marker:{color:C.gold},
+    hovertemplate:'%{x}: %{y:,}<extra></extra>',
+  }],L({xaxis:{title:'Cohort Year',dtick:1},yaxis:{title:'Students with PSEO Row'}}),CONFIG);
+
+  const psRateDiv=makeChartDiv('pseoCharts1','pseoRate','PSEO Rate by Year');
+  Plotly.newPlot(psRateDiv,[{
+    type:'scatter',mode:'lines+markers',
+    x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_PSEO_HAS_ROW),
+    line:{color:C.gold,width:2},marker:{size:5},
+    hovertemplate:'%{x}: %{y:.1%}<extra></extra>',
+  }],L({xaxis:{title:'Cohort Year',dtick:1},yaxis:{tickformat:'.0%',title:'PSEO Rate'}}),CONFIG);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NO OUTCOME TAB
+   ═══════════════════════════════════════════════════════════ */
+function renderNoOutcome(){
+  const d=currentData, N=d.n_students;
+  const noCount=metricVal(d,'NO_OUTCOME');
+
+  const kpi=document.getElementById('noCards');
+  kpi.innerHTML='';
+  kpi.appendChild(makeCard('No Outcome',fmt(noCount),pct(metricRate(d,'NO_OUTCOME'))+' of DSS','red'));
+  const reasons=d.no_outcome_reasons||[];
+  reasons.forEach(r=>{
+    kpi.appendChild(makeCard(r.REASON.replace(/_/g,' '),fmt(r.STUDENTS),pct(r.RATE_OF_NO_OUTCOME)+' of no-outcome',''));
+  });
+
+  const cr1=document.getElementById('noCharts1');
+  cr1.innerHTML='';
+
+  // Reason pie
+  const rDiv=makeChartDiv('noCharts1','noReasonPie','No-Outcome Reasons');
+  Plotly.newPlot(rDiv,[{
+    type:'pie',hole:.4,
+    labels:reasons.map(r=>r.REASON.replace(/_/g,' ')),
+    values:reasons.map(r=>r.STUDENTS),
+    marker:{colors:reasons.map(r=>REASON_COLORS[r.REASON]||C.fg2)},
+    textinfo:'label+percent',textposition:'outside',textfont:{size:10},
+    hovertemplate:'%{label}: %{value:,} (%{percent})<extra></extra>',
+  }],L({margin:{l:10,r:10,t:10,b:10},showlegend:false}),CONFIG);
+
+  // No-outcome by year bar
+  const nyrDiv=makeChartDiv('noCharts1','noByYear','No-Outcome by Cohort Year');
+  const nby=d.no_outcome_by_year||[];
+  Plotly.newPlot(nyrDiv,[{
+    type:'bar',x:nby.map(r=>r.PRIMARY_COHORT_YEAR),y:nby.map(r=>r.STUDENTS),
+    marker:{color:C.red},
+    hovertemplate:'%{x}: %{y:,}<extra></extra>',
+  }],L({xaxis:{title:'Cohort Year',dtick:1},yaxis:{title:'No-Outcome Students'}}),CONFIG);
+
+  const cr2=document.getElementById('noCharts2');
+  cr2.innerHTML='';
+
+  // No-outcome rate by year (overlay with overall)
+  const nrDiv=makeChartDiv('noCharts2','noRateYear','No-Outcome Rate vs Employment Rate by Year');
+  const by=d.by_year||[];
+  Plotly.newPlot(nrDiv,[
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_NO_OUTCOME),name:'No Outcome',type:'scatter',mode:'lines+markers',line:{color:C.red,width:2}},
+    {x:by.map(r=>r.PRIMARY_COHORT_YEAR),y:by.map(r=>r.RATE_ANY_EMPLOYMENT_OUTCOME),name:'Any Employment',type:'scatter',mode:'lines+markers',line:{color:C.green,width:2}},
+  ],L({yaxis:{tickformat:'.0%'},xaxis:{title:'Cohort Year',dtick:1},legend:{orientation:'h',y:1.12}}),CONFIG);
+
+  // No-outcome by intl
+  const niDiv=makeChartDiv('noCharts2','noByIntl','No-Outcome by International Status');
+  const ni=d.no_outcome_by_intl||[];
+  if(ni.length){
+    Plotly.newPlot(niDiv,[{
+      type:'bar',
+      x:ni.map(r=>r.IS_INTERNATIONAL?'International':'Domestic'),
+      y:ni.map(r=>r.STUDENTS),
+      marker:{color:ni.map(r=>r.IS_INTERNATIONAL?C.gold:C.blue)},
+      text:ni.map(r=>fmt(r.STUDENTS)),textposition:'auto',
+    }],L({yaxis:{title:'Students'}}),CONFIG);
+  }
+
+  // Degree / major breakdown (if available)
+  const cr3=document.getElementById('noCharts3');
+  cr3.innerHTML='';
+  const bd=d.by_degree||[];
+  if(bd.length){
+    const degDiv=makeChartDiv('noCharts3','noDegree','No-Outcome Rate by Degree (min 50 students)');
+    const top20=bd.slice(0,20);
+    Plotly.newPlot(degDiv,[{
+      type:'bar',orientation:'h',
+      y:top20.map(r=>r[Object.keys(r)[0]]),
+      x:top20.map(r=>r.NO_OUTCOME_RATE),
+      marker:{color:top20.map(r=>r.NO_OUTCOME_RATE>.7?C.red:r.NO_OUTCOME_RATE>.5?C.gold:C.green)},
+      text:top20.map(r=>pct(r.NO_OUTCOME_RATE)+' (n='+fmt(r.STUDENTS)+')'),
+      textposition:'auto',textfont:{size:10},
+      hovertemplate:'%{y}: %{x:.1%}<extra></extra>',
+    }],L({xaxis:{tickformat:'.0%',title:'No-Outcome Rate'},yaxis:{autorange:'reversed'},margin:{l:220,r:30,t:10,b:50}}),CONFIG);
+  }
+
+  // Table
+  const tw=document.getElementById('noTableWrap');
+  tw.innerHTML='';
+  if(nby.length){
+    let html='<table class="data-table"><thead><tr><th>Cohort Year</th><th class="num">No-Outcome Students</th></tr></thead><tbody>';
+    nby.sort((a,b)=>a.PRIMARY_COHORT_YEAR-b.PRIMARY_COHORT_YEAR).forEach(r=>{
+      html+=`<tr><td>${r.PRIMARY_COHORT_YEAR}</td><td class="num">${fmt(r.STUDENTS)}</td></tr>`;
+    });
+    html+='</tbody></table>';
+    tw.innerHTML=html;
+  }
+}
+
+/* ── Scope select change ───────────────────────────────────── */
+document.getElementById('scopeSelect').addEventListener('change',function(){
+  renderScope(this.value);
+});
+
+})();
+</script>
+</body>
+</html>

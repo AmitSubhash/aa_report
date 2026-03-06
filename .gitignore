@@ -1,0 +1,28 @@
+# Raw data files (sensitive, not committed)
+data/raw/
+
+# Generated bundles and reports (regenerate with build_dashboard_data.py)
+data/bundles/
+reports/
+
+# Sample data generator output
+scripts/generate_sample_data.py
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# Claude config
+.claude/
+
+# Original prompt file
+Propmt.md.rtf
