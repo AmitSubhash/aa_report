@@ -183,24 +183,58 @@ def add_join_id(df: pd.DataFrame, id_col: str, tag: str) -> pd.DataFrame:
 # HELPERS: year derivation
 # ─────────────────────────────────────────────────────────────────────
 def derive_year_end(value, pivot: int = 30):
+    """
+    Converts various fiscal/academic year formats to a 4-digit ending year.
+    Examples:
+        "0405" or "405"   → 2005   (fiscal year pair: take last 2 digits)
+        "2425"            → 2025   (fiscal year pair: digits 3-4 are 25)
+        "2526"            → 2026
+        "2005"            → 2005   (already a plausible 4-digit year)
+        "AY 04/05"        → 2005
+        "2004-05"         → 2005
+    """
     if value is None:
         return np.nan
     s = str(value).strip()
     if s == "" or s.lower() in {"nan", "none", "null", "<na>"}:
         return np.nan
-    # "2005" or "AY 04/05" → 2005
-    m = re.search(r"(\d{4})\s*$", s)
-    if m:
-        return int(m.group(1))
+
+    # "AY 04/05" or "2004-05" or "04/05" → extract last 2-digit year after separator
     m = re.search(r"[-/]\s*(\d{2})\s*$", s)
     if m:
         yy = int(m.group(1))
         return (2000 if yy <= pivot else 1900) + yy
-    if re.fullmatch(r"\d{3}", s):
-        yy = int(s) % 100
+
+    # Pure digits only from here
+    digits = re.sub(r"\D", "", s)
+    if digits == "":
+        return np.nan
+
+    # 3 digits: "405" → fiscal pair 04/05 → 2005 (last 2 digits)
+    if len(digits) == 3:
+        yy = int(digits[-2:])
         return (2000 if yy <= pivot else 1900) + yy
-    if re.fullmatch(r"\d{4}", s):
-        return int(s)
+
+    # 4 digits: could be "2005" (a real year) or "0405" (fiscal pair)
+    # Fiscal year pair pattern: first 2 digits + 1 == last 2 digits (e.g., 04/05, 19/20, 24/25)
+    if len(digits) == 4:
+        first2 = int(digits[:2])
+        last2 = int(digits[-2:])
+        # Fiscal pair: consecutive 2-digit years (wrapping 99→00)
+        if last2 == (first2 + 1) % 100:
+            return (2000 if last2 <= pivot else 1900) + last2
+        # Otherwise treat as literal 4-digit year if plausible
+        val = int(digits)
+        if 1900 <= val <= 2099:
+            return val
+        # Fallback: treat last 2 digits as year
+        return (2000 if last2 <= pivot else 1900) + last2
+
+    # 5+ digits: try to extract a 4-digit year
+    m = re.search(r"((?:19|20)\d{2})", digits)
+    if m:
+        return int(m.group(1))
+
     return np.nan
 
 
@@ -451,7 +485,7 @@ def main():
         bool_cols = ["AA_HAS_ROW", "AA_HAS_EMPLOYMENT", "LC_HAS_ROW", "LC_TRUE_MATCH",
                      "LC_EMPLOYMENT_TRUE_MATCH", "LC_ROW_ONLY_NO_TRUE_MATCH", "PSEO_HAS_ROW"]
         for c in bool_cols:
-            master[c] = master[c].fillna(False).astype(bool)
+            master[c] = master[c].astype(object).fillna(False).astype(bool)
         for c in ["AA_ROW_COUNT", "LC_ROW_COUNT", "PSEO_ROW_COUNT"]:
             if c in master.columns:
                 master[c] = pd.to_numeric(master[c], errors="coerce").fillna(0).astype(int)
