@@ -12,16 +12,6 @@ pip install pandas numpy openpyxl
 
 ### 2. Place raw data files
 
-Copy the five source CSVs into `data/raw/`:
-
-```
-data/raw/
-├── ozgurcodedss.csv
-├── ai_raw_data_most_recent_2026-1-28_11-40-33.csv
-├── ai_raw_data_longitudinal_2026-1-28_11-41-7.csv
-├── LCAST_ALUMNI.csv
-└── pseo.csv
-```
 
 If files are elsewhere under the project root, the script will find them recursively and log the resolved paths.
 
