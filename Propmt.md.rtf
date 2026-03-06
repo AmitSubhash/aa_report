@@ -1,0 +1,504 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2868
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 You are building a production-quality, non-destructive alumni outcomes analytics system for Indiana University \'96 Bloomington Graduate School.\
+\
+DO NOT delete files.\
+DO NOT overwrite existing outputs.\
+Create timestamped run folders for every execution.\
+Log every major assumption and every file chosen.\
+\
+The system has two phases:\
+\
+PHASE A \'97 Python preprocessing / diagnostics\
+PHASE B \'97 Static dashboard generation\
+\
+The final deliverables must support manager presentation, technical auditability, and future refreshes.\
+\
+==================================================\
+PRIMARY OBJECTIVE\
+==================================================\
+\
+Build a defensible, auditable, multi-source alumni outcomes system using:\
+\
+1. DSS as the authoritative denominator\
+2. Lightcast as the broadest employment source, but only when MATCH_STATUS == True\
+3. Academic Analytics (AA) as a supplemental academic-placement/employment source\
+4. PSEO as a student engagement / career services source, NOT employment\
+\
+The system must maximize useful coverage while preserving match validity.\
+\
+==================================================\
+ENVIRONMENT + WORKFLOW\
+==================================================\
+\
+Assume this is being built locally on a MacBook in an empty folder using Claude Code.\
+\
+Expected local raw data folder:\
+./data/raw/\
+\
+Expected raw filenames:\
+- ozgurcodedss.csv\
+- ai_raw_data_most_recent_2026-1-28_11-40-33.csv\
+- ai_raw_data_longitudinal_2026-1-28_11-41-7.csv\
+- LCAST_ALUMNI.csv\
+- pseo.csv\
+\
+If files are not found there:\
+- search recursively by basename\
+- log the chosen file paths\
+- do not guess silently\
+\
+If raw data is too sensitive to keep locally, still build the code here and ensure the preprocessing script can run unchanged on a remote server.\
+\
+==================================================\
+DELIVERABLES\
+==================================================\
+\
+Create:\
+\
+1. scripts/build_dashboard_data.py\
+   - Reads raw CSVs\
+   - Normalizes data\
+   - Profiles each dataset\
+   - Builds student-level flags\
+   - Produces bundled JSON files for the dashboard\
+   - Produces Excel/CSV/Markdown reports\
+\
+2. dashboard/index.html\
+   - SINGLE self-contained HTML file\
+   - inline CSS + JS\
+   - no build step\
+   - loads precomputed JSON bundle(s) through file input\
+   - can optionally support raw CSV input as a slow fallback, but JSON bundle mode is primary\
+\
+3. reports/<timestamp>/\
+   - data_inventory_report.xlsx\
+   - true_match_report_2004_2025.xlsx\
+   - true_match_report_2010_2025.xlsx\
+   - true_match_report_2010_2024.xlsx\
+   - report_summary_2004_2025.md\
+   - report_summary_2010_2025.md\
+   - report_summary_2010_2024.md\
+   - no_outcome_students_*.csv\
+   - lightcast_row_only_no_true_match_*.csv\
+\
+4. data/bundles/\
+   - dashboard_bundle_2004_2025.json\
+   - dashboard_bundle_2010_2025.json\
+   - dashboard_bundle_2010_2024.json\
+\
+5. README.md\
+   - setup instructions\
+   - refresh workflow\
+   - known caveats\
+\
+==================================================\
+DATA SOURCES\
+==================================================\
+\
+1. DSS (authoritative denominator)\
+Filename:\
+- ozgurcodedss.csv\
+\
+Raw ID column:\
+- PRSN_UNIV_ID\
+\
+Important DSS filters:\
+- STU_DEGR_CKOT_STAT_CD = 'AW'\
+- ACAD_DEGR_ED_LVL_CD IN ('8','9')\
+- Prefer INST_CD = 'IUBLA' if available and not already filtered\
+- Prefer ACAD_PRD_DESC LIKE 'Off%' if present and if this was part of the original extraction logic\
+\
+Cohort year:\
+- derive from SR_STU_DEGR_FSCL_YR or ACAD_YEAR / ACAD_YEAR_DESC if needed\
+- keep all years 2004\'962025\
+- also create:\
+  - stable trend scope = 2010\'962024\
+  - modern scope = 2010\'962025\
+  - full scope = 2004\'962025\
+\
+International flag:\
+- PRSN_DRVD_ETHNIC_IR_RPT_DESC == 'US Nonresident' \uc0\u8594  IS_INTERNATIONAL = True\
+- else False\
+\
+2. AA Most Recent\
+Filename:\
+- ai_raw_data_most_recent_2026-1-28_11-40-33.csv\
+\
+Raw ID:\
+- CLIENTPERSONID\
+\
+Important fields:\
+- YEAR\
+- ENTITYNAME\
+- POSITION\
+- COLLEGE\
+- FIELD\
+- INSTITUTIONNAME\
+- BROADTYPE\
+- SUBTYPE\
+- ISPUBLIC\
+- CARNEGIECLASS\
+- COUNTRYNAME\
+- STATE\
+- NAICS_TITLE\
+- SOC_TITLE\
+- SALARY_AVGMEDIAN_SOC_STATE\
+\
+3. AA Longitudinal\
+Filename:\
+- ai_raw_data_longitudinal_2026-1-28_11-41-7.csv\
+\
+Raw ID:\
+- CLIENTPERSONID\
+\
+Important fields:\
+- YEAR\
+- SNAPSHOTYEAR\
+- ENTITYNAME\
+- POSITION\
+- same overall AA structure as most recent\
+\
+Important AA caveat:\
+- AA is not a universal annual denominator in this project\
+- AA behaves like a partial/snapshot/subset source\
+- preserve that fact in all reports\
+\
+4. Lightcast\
+Filename:\
+- LCAST_ALUMNI.csv\
+\
+Raw ID:\
+- PRSN_UNIV_ID\
+\
+Important fields:\
+- MATCH_STATUS\
+- MATCH_CONFIDENCE\
+- COMPANY_NAME\
+- COMPANY_RAW\
+- TITLE_NAME\
+- TITLE_RAW\
+- CITY_NAME\
+- STATE_NAME\
+- INST_GRADYEAR\
+- INST_CAMPUS_NAME\
+- EMP_WAGE_MEDIAN\
+- EMP_WAGE_AVERAGE\
+- ONET_NAME\
+- SOC2_NAME\
+- SOC3_NAME\
+- LOT_CAREER_AREA_NAME\
+- LOT_OCCUPATION_GROUP_NAME\
+- NAICS2_NAME\
+- NAICS3_NAME\
+- IS_JOB_AFTER_GRAD_YEAR\
+- EMP_STATUS_NAME\
+- INST_IS_GRADUATE\
+\
+Critical rule:\
+- MATCH_STATUS must be True for a Lightcast record to count as a true match\
+- LC has row != LC true match\
+- LC true match + nonblank company/title = valid Lightcast employment outcome\
+\
+5. PSEO\
+Filename:\
+- pseo.csv\
+\
+Raw ID:\
+- PRSN_UNIV_ID\
+\
+Use PSEO as engagement / service interaction only.\
+Do NOT treat it as employment.\
+\
+==================================================\
+JOIN ID NORMALIZATION\
+==================================================\
+\
+Create a single standardized JOIN_ID across all files.\
+\
+Rules:\
+- strip whitespace\
+- if value looks like Excel float: 12345.0 -> 12345\
+- handle scientific notation safely if possible\
+- extract digits only\
+- zero-pad to 10 digits\
+- preserve original raw ID columns too\
+\
+Implement a reusable function like:\
+\
+def normalize_join_id(x):\
+    if missing -> return pd.NA\
+    s = str(x).strip()\
+    if regex fullmatch r'\\d+\\.0+' -> remove trailing .0\
+    else try float conversion only if obviously numeric-like\
+    digits = re.sub(r'\\D', '', s)\
+    if digits == '' -> pd.NA\
+    return digits.zfill(10)\
+\
+Report:\
+- percent missing JOIN_ID by dataset\
+- raw ID length distribution\
+- normalized ID length distribution\
+- top issue types\
+\
+==================================================\
+STUDENT-LEVEL BASE TABLE\
+==================================================\
+\
+DSS defines the student universe.\
+\
+Create one row per JOIN_ID with:\
+- JOIN_ID\
+- PRIMARY_COHORT_YEAR\
+- DSS_MIN_GRAD_YEAR\
+- DSS_MAX_GRAD_YEAR\
+- N_DSS_GRAD_YEARS\
+- IS_INTERNATIONAL\
+- degree/program descriptors if present:\
+  - ACAD_DEGR_DESC\
+  - ACAD_DEGR_ED_LVL_CD\
+  - ACAD_PLAN_MJR1_DESC\
+  - ACAD_CAREER_CD\
+\
+Primary cohort year rule:\
+- use max cohort year within the scoped DSS records\
+- retain min/max/number of grad years for diagnostics\
+\
+==================================================\
+TRUE MATCH + EMPLOYMENT LOGIC\
+==================================================\
+\
+AA:\
+- AA_HAS_ROW = any AA row for JOIN_ID\
+- AA_HAS_EMPLOYMENT = any AA row where ENTITYNAME or POSITION is nonblank\
+\
+Lightcast:\
+- LC_HAS_ROW = any LC row for JOIN_ID\
+- LC_TRUE_MATCH = any LC row with MATCH_STATUS == True\
+- LC_EMPLOYMENT_TRUE_MATCH = any LC row with MATCH_STATUS == True and (COMPANY_NAME or TITLE_NAME nonblank)\
+- LC_ROW_ONLY_NO_TRUE_MATCH = LC_HAS_ROW == True and LC_TRUE_MATCH == False\
+\
+PSEO:\
+- PSEO_HAS_ROW = any PSEO row for JOIN_ID\
+\
+Union metrics:\
+- ANY_VENDOR_ROW = AA_HAS_ROW or LC_HAS_ROW or PSEO_HAS_ROW\
+- ANY_VENDOR_MATCH_STRICT = AA_HAS_ROW or LC_TRUE_MATCH or PSEO_HAS_ROW\
+- ANY_EMPLOYMENT_OUTCOME = AA_HAS_EMPLOYMENT or LC_EMPLOYMENT_TRUE_MATCH\
+\
+Bucket precedence (disjoint):\
+1. AA_EMPLOYMENT\
+2. LIGHTCAST_EMPLOYMENT\
+3. PSEO_ONLY_OR_ENGAGEMENT\
+4. NO_OUTCOME\
+\
+NO_OUTCOME = not ANY_EMPLOYMENT_OUTCOME and not PSEO_HAS_ROW\
+\
+NO_OUTCOME_REASON priority:\
+1. NO_VENDOR_RECORD\
+2. LIGHTCAST_ROW_BUT_NO_TRUE_MATCH\
+3. AA_ROW_BUT_BLANK_ENTITY_POSITION\
+4. LIGHTCAST_TRUE_MATCH_BUT_BLANK_EMPLOYER_TITLE\
+5. OTHER\
+\
+==================================================\
+AA YEAR ALIGNMENT DIAGNOSTICS\
+==================================================\
+\
+This is mandatory.\
+\
+Compute:\
+- AA_YEAR raw distribution\
+- AA_SNAPSHOTYEAR distribution if present\
+- AA coverage by DSS cohort year using:\
+  a) AA any-year join\
+  b) AA_YEAR aligned exactly to DSS year\
+  c) AA_YEAR aligned within DSS year or DSS year - 1\
+- Crosstab of DSS primary cohort year vs AA YEAR\
+\
+Purpose:\
+- make it explicit that AA is not a continuous annual coverage source\
+- document why 2021\'962024 look sparse or align to 2020/2025\
+\
+==================================================\
+LIGHTCAST SCOPE + MATCH DIAGNOSTICS\
+==================================================\
+\
+Compute:\
+- row-level campus distribution\
+- unique-student campus distribution\
+- campus distribution among true matches only\
+- MATCH_STATUS true vs false counts\
+- true match rate by year, international status, degree, and major\
+- row-only-no-true-match rate by year, international status, degree, and major\
+- match confidence distribution for true vs false rows if MATCH_CONFIDENCE exists\
+\
+Important:\
+- Lightcast includes multiple IU campuses\
+- do not use campus as the denominator\
+- use DSS base and JOIN_ID linkage first\
+- campus is a QA / slice dimension only\
+\
+==================================================\
+NO_OUTCOME DEEP DIVE\
+==================================================\
+\
+This is mandatory and must be prominent in the reports.\
+\
+For each scope, produce:\
+- count and rate of NO_OUTCOME\
+- reason breakdown\
+- no-outcome by cohort year\
+- no-outcome by degree (minimum denominator 50)\
+- no-outcome by major (minimum denominator 50)\
+- no-outcome by international status\
+- example rows per reason category (at least 25 per reason if available)\
+- export no-outcome JOIN_ID list and Oracle-friendly IN-clause text file\
+\
+Also produce a focused diagnostic on:\
+- students with LC_HAS_ROW = True and LC_TRUE_MATCH = False\
+This is the dominant failure category and should be treated as the main bottleneck.\
+\
+==================================================\
+VALIDATION TARGETS\
+==================================================\
+\
+Use these as approximate benchmarks for 2004\'962025.\
+Do not force exact equality if upstream filters differ slightly, but flag if materially different.\
+\
+Expected rough values:\
+- DSS students \uc0\u8776  15,186\
+- AA_HAS_ROW \uc0\u8776  1,890\
+- AA_HAS_EMPLOYMENT \uc0\u8776  1,536\
+- LC_HAS_ROW \uc0\u8776  11,768\
+- LC_TRUE_MATCH \uc0\u8776  4,545\
+- LC_EMPLOYMENT_TRUE_MATCH \uc0\u8776  4,519\
+- LC_ROW_ONLY_NO_TRUE_MATCH \uc0\u8776  7,223\
+- PSEO_HAS_ROW \uc0\u8776  2,195\
+- ANY_VENDOR_ROW \uc0\u8776  12,421\
+- ANY_VENDOR_MATCH_STRICT \uc0\u8776  6,715\
+- ANY_EMPLOYMENT_OUTCOME \uc0\u8776  5,488\
+- NO_OUTCOME \uc0\u8776  8,708\
+\
+And NO_OUTCOME reasons roughly:\
+- LIGHTCAST_ROW_BUT_NO_TRUE_MATCH \uc0\u8776  5,706\
+- NO_VENDOR_RECORD \uc0\u8776  2,765\
+- AA_ROW_BUT_BLANK_ENTITY_POSITION \uc0\u8776  219\
+- LIGHTCAST_TRUE_MATCH_BUT_BLANK_EMPLOYER_TITLE \uc0\u8776  18\
+\
+If the values differ materially, report it and explain likely causes.\
+\
+==================================================\
+DASHBOARD REQUIREMENTS\
+==================================================\
+\
+Build dashboard/index.html as a single self-contained HTML file with inline CSS and JS.\
+\
+Primary mode:\
+- load one or more precomputed JSON bundle files through file input\
+- no server, no npm, no build step\
+\
+Optional fallback mode:\
+- allow raw CSV upload of the five source files\
+- mark this mode as slow / diagnostic\
+- do not rely on it for main usage\
+\
+Libraries via CDN only:\
+- Plotly.js\
+- D3.js\
+- PapaParse (optional fallback only)\
+\
+Theme:\
+- dark executive dashboard\
+- IU crimson #990000 as primary accent\
+- gold/amber #EDAB56 as secondary\
+- high readability\
+- smooth transitions\
+- responsive cards\
+\
+Tabs:\
+1. Overview\
+2. Academic Analytics\
+3. Lightcast\
+4. PSEO\
+5. No Outcome Explorer\
+6. Data Notes / Methodology\
+\
+Minimum visuals:\
+- KPI cards\
+- Sankey diagram\
+- vendor funnel\
+- year trend charts\
+- vendor-by-year heatmap\
+- AA year alignment crosstab heatmap\
+- Lightcast true-match bottleneck visual\
+- international vs domestic comparison\
+- no-outcome reason chart\
+\
+Dashboard must answer, visually and textually:\
+- What is the denominator?\
+- What counts as a true match?\
+- What counts as an employment outcome?\
+- Which source gives the most coverage?\
+- Where does coverage fall apart?\
+- Which years are weak?\
+- Is 2025 incomplete?\
+- Is AA annual or snapshot-like?\
+- Are international students under-covered?\
+- Are we looking at Bloomington grads via DSS denominator?\
+\
+==================================================\
+REPORTING / DOCUMENTATION\
+==================================================\
+\
+Create report_summary_*.md files that explicitly state:\
+\
+1. What the data is\
+2. What each source contributes\
+3. The join plan\
+4. The largest loopholes / pitfalls\
+5. Where the employment information actually comes from\
+6. Whether all years are covered\
+7. Which years have deficits\
+8. Whether Bloomington is being used as the denominator\
+9. What happens with international students\
+10. What the recommended dashboard interpretation is\
+\
+Also write a concise executive memo:\
+- one page\
+- top numbers\
+- key caveats\
+- recommendation on using AA as a supplement vs backbone\
+\
+==================================================\
+QUALITY CHECKS\
+==================================================\
+\
+Before finishing, assert:\
+- one row per DSS student in final student-level bundle\
+- BUCKET partition sums to DSS_STUDENTS\
+- NO_OUTCOME == BUCKET == NO_OUTCOME\
+- LC_EMPLOYMENT_TRUE_MATCH <= LC_TRUE_MATCH\
+- AA_HAS_EMPLOYMENT <= AA_HAS_ROW\
+- ANY_EMPLOYMENT_OUTCOME <= ANY_VENDOR_MATCH_STRICT or explain why not if PSEO logic affects it\
+\
+Write all checks into the report.\
+\
+==================================================\
+FINAL INSTRUCTION\
+==================================================\
+\
+Build the entire project end-to-end.\
+Do not stop after generating code.\
+Run the preprocessing.\
+Generate the bundles.\
+Generate the reports.\
+Generate the dashboard.\
+Log everything clearly.\
+\
+If anything is ambiguous, choose the most conservative and auditable interpretation and document it.}
